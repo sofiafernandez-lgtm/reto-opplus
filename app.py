@@ -60,7 +60,7 @@ def asignar_expedientes(data, num_gestores):
 df = load_data()
 
 if df is not None:
-    st.title("📊 Inteligencia de Negocio | Optimización Opplus")
+    st.title("Modelo de priorización | Optimización Opplus")
     
     with st.sidebar:
         st.image("https://www.opplus.es/wp-content/uploads/2021/04/logo-opplus.png", width=150)
@@ -72,7 +72,7 @@ if df is not None:
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.subheader("🌡️ Volumen por Nivel de Riesgo")
+        st.subheader("Volumen por Nivel de Riesgo")
         fig_riesgo = px.pie(
             df_final, names='Nivel Riesgo', hole=0.5,
             color='Nivel Riesgo',
@@ -81,7 +81,7 @@ if df is not None:
         st.plotly_chart(fig_riesgo, use_container_width=True)
 
     with col_b:
-        st.subheader("⚖️ Matriz Carga vs Riesgo (Nº Casos)")
+        st.subheader("Matriz Carga vs Riesgo")
         # Recuperamos el gráfico de barras por cuadrantes
         cuadrantes_stats = df_final['Cuadrante'].value_counts().reset_index()
         cuadrantes_stats.columns = ['Cuadrante', 'count']
@@ -95,13 +95,13 @@ if df is not None:
     st.markdown("---")
 
     # SECCIÓN 2: LISTAS TÁCTICAS DE PRIORIDAD
-    st.header("🔥 Listas de Prioridad Inmediata")
+    st.header("Listas de Asignación Inmediata")
     
     lp1, lp2 = st.columns(2)
 
     with lp1:
         st.markdown('<div class="prioridad-card">', unsafe_allow_html=True)
-        st.subheader("🔴 Lista 1: Carga Alta / Riesgo Alto")
+        st.subheader("Lista 1: Carga Alta / Riesgo Alto")
         st.caption("Casos críticos que requieren mayor tiempo de gestión")
         
         l1 = df_final[(df_final['Nivel Carga'] == 'Alta Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
@@ -116,7 +116,7 @@ if df is not None:
 
     with lp2:
         st.markdown('<div class="prioridad-card" style="border-left: 5px solid #f1c40f;">', unsafe_allow_html=True)
-        st.subheader("⚡ Lista 2: Carga Baja / Riesgo Alto")
+        st.subheader("Lista 2: Carga Baja / Riesgo Alto")
         st.caption("Prioridad 'Quick Win': Alta peligrosidad, baja dificultad")
         
         l2 = df_final[(df_final['Nivel Carga'] == 'Baja Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
