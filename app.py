@@ -3,28 +3,41 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-# 1. Configuración de página y Estética Profesional
-st.set_page_config(page_title="Opplus | Smart Allocator", layout="wide", initial_sidebar_state="expanded")
+# 1. Configuración de página
+st.set_page_config(page_title="Opplus Strategy Dashboard", layout="wide")
 
-# CSS avanzado para que parezca una app moderna
+# CSS para mejorar el aspecto
 st.markdown("""
     <style>
-    .main { background-color: #f0f2f6; }
-    [data-testid="stMetricValue"] { font-size: 28px; color: #004481; font-weight: bold; }
-    .stDataFrame { border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .css-1kyx7ws { background-color: #004481; } /* Sidebar color */
-    h1 { color: #004481; font-family: 'Segoe UI', sans-serif; font-weight: 700; }
-    h3 { color: #004481; font-family: 'Segoe UI', sans-serif; }
-    .stButton>button { background-color: #004481; color: white; border-radius: 20px; }
+    .main { background-color: #f8f9fa; }
+    .stMetric { background-color: white; border-radius: 10px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    h1, h2, h3 { color: #004481; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Motor de Carga y Lógica
 @st.cache_data
 def load_data():
     try:
         df = pd.read_excel("OPPLUS RPLIT.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
+        # Clasificamos el Riesgo
+        def clasificar_riesgo(r):
+            if r > 2000: return 'Alto Riesgo'
+            if r > 1000: return 'Riesgo Medio'
+            return 'Bajo Riesgo'
+        
+        # Clasificamos la Carga
+        def clasificar_carga(c):
+            return 'Carga Alta' if c > df['CARGA OPERATIVA'].median() else 'Carga Baja'
+
+        df['Nivel Riesgo'] = df['Riesgo de entrada en Mora'].apply(clasificar_riesgo)
+        df['Nivel Carga'] = df['CARGA OPERATIVA'].apply(clasificar_carga)
+        
+        # Creamos los Cuadrantes
+        def asignar_cuadrante(row):
+            return f"{row['Nivel Carga']} / {row['Nivel Riesgo']}"
+        df['Cuadrante'] = df.apply(asignar_cuadrante, axis=1)
+        
         return df
     except:
         return None
@@ -40,87 +53,71 @@ def asignar_expedientes(data, num_gestores):
     data['Gestor_Asignado'] = asignaciones
     return data, gestores
 
-# --- CUERPO PRINCIPAL ---
+# --- LÓGICA PRINCIPAL ---
 df = load_data()
 
 if df is not None:
-    # Sidebar con estilo
+    st.title("📊 Panel de Control Estratégico | Reto Opplus")
+    
+    # Sidebar
     with st.sidebar:
-        st.image("https://www.opplus.es/wp-content/uploads/2021/04/logo-opplus.png", width=180)
+        st.image("https://www.opplus.es/wp-content/uploads/2021/04/logo-opplus.png", width=150)
+        n_gestores = st.slider("Gestores disponibles", 10, 60, 39)
         st.markdown("---")
-        st.header("🎮 Panel de Control")
-        n_gestores = st.slider("Capacidad del Equipo (Gestores)", 5, 100, 39)
-        st.info("Este modelo optimiza el reparto basándose en la carga operativa real y el riesgo de mora.")
-
-    # Encabezado principal
-    st.title("🚀 Smart Allocator: Optimización de Recuperaciones")
-    st.markdown("---")
+        st.write("### Definición de Umbrales")
+        st.caption("Alto Riesgo: > 2000 pts")
+        st.caption("Carga Alta: > Mediana")
 
     df_final, cargas = asignar_expedientes(df, n_gestores)
 
-    # 3. KPIs con diseño de Tarjetas
-    m1, m2, m3, m4 = st.columns(4)
-    with m1:
-        st.metric("📦 Expedientes", f"{len(df_final)}")
-    with m2:
-        criticos = len(df_final[df_final['diferencia de días'] > 60])
-        st.metric("🚨 Casos Críticos", criticos, delta="-12% vs ayer", delta_color="inverse")
-    with m3:
-        carga_total = sum(cargas.values())
-        st.metric("⚖️ Carga Total", f"{carga_total:,.0f}")
-    with m4:
-        eficiencia = "94.2%"
-        st.metric("📈 Eficiencia Reparto", eficiencia)
+    # Gráficos Superiores
+    col_a, col_b = st.columns(2)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # 4. Gráficos Modernos
-    col_left, col_right = st.columns([6, 4])
-
-    with col_left:
-        st.subheader("📊 Balanceo Dinámico de Carga")
-        # Usamos un gráfico de área para que se vea más moderno
-        fig_cargas = px.area(
-            x=list(cargas.keys()), 
-            y=list(cargas.values()),
-            labels={'x': 'Equipo de Gestores', 'y': 'Carga Acumulada'},
-            color_discrete_sequence=['#004481']
+    with col_a:
+        st.subheader("🌡️ Distribución de Riesgo (%)")
+        # Gráfico de tarta con colores específicos
+        fig_riesgo = px.pie(
+            df_final, names='Nivel Riesgo', 
+            color='Nivel Riesgo',
+            color_discrete_map={'Alto Riesgo':'#e74c3c', 'Riesgo Medio':'#f1c40f', 'Bajo Riesgo':'#2ecc71'},
+            hole=0.5
         )
-        fig_cargas.update_layout(margin=dict(l=0, r=0, t=20, b=0), height=350)
-        st.plotly_chart(fig_cargas, use_container_width=True)
+        st.plotly_chart(fig_riesgo, use_container_width=True)
 
-    with col_right:
-        st.subheader("🎯 Estado del Portfolio")
-        # Gráfico de tarta con los tramos de riesgo
-        fig_pie = px.pie(
-            df_final, 
-            names='Tipo de préstamo ', 
-            hole=0.6,
-            color_discrete_sequence=['#004481', '#028484', '#0073C2']
+    with col_b:
+        st.subheader("⚖️ Matriz Carga vs Riesgo (Nº Casos)")
+        # Gráfico de barras de los cuadrantes solicitados
+        cuadrantes_stats = df_final['Cuadrante'].value_counts().reset_index()
+        fig_cuadrantes = px.bar(
+            cuadrantes_stats, x='Cuadrante', y='count',
+            color='Cuadrante',
+            color_discrete_sequence=px.colors.qualitative.Prism
         )
-        fig_pie.update_layout(margin=dict(l=0, r=0, t=20, b=0), height=350)
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_cuadrantes, use_container_width=True)
 
     st.markdown("---")
-
-    # 5. Tabla con diseño profesional
-    st.subheader("📋 Plan de Trabajo Priorizado")
     
-    # Creamos una columna visual de "Urgencia"
-    df_final['Urgencia'] = df_final['Riesgo de entrada en Mora'].apply(lambda x: "🔴 ALTA" if x > 2000 else ("🟡 MEDIA" if x > 1000 else "🟢 BAJA"))
-    
-    columnas_seleccion = ['Gestor_Asignado', 'Urgencia', 'Deuda actual', 'diferencia de días', 'CARGA OPERATIVA']
-    
-    # Mostramos la tabla
-    st.dataframe(
-        df_final[columnas_seleccion].sort_values("Deuda actual", ascending=False),
-        use_container_width=True,
-        height=400
+    # Sección de Análisis de Dispersión (Muy profesional)
+    st.subheader("🔍 Análisis Detallado de Expedientes")
+    fig_scatter = px.scatter(
+        df_final, 
+        x="CARGA OPERATIVA", 
+        y="Riesgo de entrada en Mora",
+        color="Nivel Riesgo",
+        size="Deuda actual",
+        hover_data=['Gestor_Asignado', 'Tipo de préstamo '],
+        color_discrete_map={'Alto Riesgo':'#e74c3c', 'Riesgo Medio':'#f1c40f', 'Bajo Riesgo':'#2ecc71'},
+        title="Cada punto es un cliente (el tamaño es la deuda)"
     )
+    # Añadimos líneas de cuadrante
+    fig_scatter.add_hline(y=1500, line_dash="dot", annotation_text="Umbral Crítico")
+    st.plotly_chart(fig_scatter, use_container_width=True)
 
-    # Botón de descarga
-    csv = df_final.to_csv(index=False).encode('utf-8')
-    st.download_button("📥 Descargar Plan de Trabajo (CSV)", csv, "plan_opplus.csv", "text/csv")
-
+    # Tabla Final
+    st.subheader("📋 Lista de Asignación Final")
+    st.dataframe(
+        df_final[['Gestor_Asignado', 'Nivel Riesgo', 'Cuadrante', 'Deuda actual', 'CARGA OPERATIVA']],
+        use_container_width=True
+    )
 else:
-    st.warning("⚠️ Cargando configuración del sistema...")
+    st.error("No se pudo cargar el archivo. Verifica que se llame 'OPPLUS RPLIT.xlsx' y tenga la hoja 'Modelo'.")
