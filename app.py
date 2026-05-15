@@ -44,23 +44,33 @@ if df is not None:
 
     # 4. Lógica de Asignación Automática (Para evitar cuellos de botella)
     st.write("Columnas detectadas:", df.columns.tolist())
-    def asignar_expedientes(data, num_gestores):
-        # Ordenamos por tu columna rosa (Riesgo) de mayor a menor
-        data = data.sort_values(by="Riesgo de entrada en Mora", ascending=False)
+    
+  def asignar_expedientes(data, num_gestores):
+    # 1. ORDENAR: Ponemos arriba los de más riesgo
+    # Usamos el nombre exacto de tu nueva hoja: "Riesgo de entrada en Mora"
+    data = data.sort_values(by="Riesgo de entrada en Mora", ascending=False)
+    
+    # 2. PREPARAR GESTORES: Creamos una lista con los gestores (del 1 al 39, por ejemplo)
+    # Todos empiezan con 0 de carga acumulada
+    gestores = {f"Gestor {i+1}": 0 for i in range(num_gestores)}
+    asignaciones = []
+
+    # 3. REPARTIR: Vamos uno a uno
+    for _, fila in data.iterrows():
+        # Buscamos quién es el gestor que menos trabajo tiene acumulado en ese momento
+        gestor_libre = min(gestores, key=gestores.get)
         
-        gestores = {f"Gestor {i+1}": 0 for i in range(num_gestores)}
-        asignaciones = []
-
-        for _, fila in data.iterrows():
-            # Asignamos al gestor que menos carga operativa acumulada tenga
-            gestor_libre = min(gestores, key=gestores.get)
-            asignaciones.append(gestor_libre)
-            # Sumamos la CARGA OPERATIVA de tu columna
-            gestores[gestor_libre] += fila['CARGA OPERATIVA']
-            
-        data['Gestor_Asignado'] = asignaciones
-        return data, gestores
-
+        # Le asignamos el expediente
+        asignaciones.append(gestor_libre)
+        
+        # Le sumamos la "CARGA OPERATIVA" de ese expediente a su cuenta personal
+        # Usamos el nombre exacto: "CARGA OPERATIVA"
+        gestores[gestor_libre] += fila['CARGA OPERATIVA']
+        
+    # 4. RESULTADO: Guardamos quién es el dueño de cada fila
+    data['Gestor_Asignado'] = asignaciones
+    return data, gestores
+      
     df_final, cargas = asignar_expedientes(df, n_gestores)
 
     # 5. Visualización de KPIs (Cuadros superiores)
