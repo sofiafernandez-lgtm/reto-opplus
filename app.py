@@ -23,7 +23,7 @@ st.title("Sistema de Optimización de Expedientes | Reto Opplus")
 def load_data():
     # Asegúrate de que el archivo se llame exactamente así en GitHub
     try:
-        df = pd.read_excel("OPPLUS RPLIT.xlsx") # <--- CAMBIA ESTO POR EL NOMBRE DE TU ARCHIVO
+        df = pd.read_excel("OPPLUS RPLIT.xlsx",sheet_name="Modelo") # <--- CAMBIA ESTO POR EL NOMBRE DE TU ARCHIVO
         return df
     except:
         st.error("⚠️ No se encontró el archivo Excel. Asegúrate de subirlo a GitHub con el nombre correcto.")
