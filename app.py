@@ -30,6 +30,9 @@ def load_data():
         return None
 
 df = load_data()
+if df is not None:
+    # Esto quita espacios invisibles al principio o al final de los nombres
+    df.columns = [c.strip() for c in df.columns]
 
 if df is not None:
     # 3. Sidebar - Panel de Control
@@ -40,6 +43,7 @@ if df is not None:
     k_ajuste = st.sidebar.slider("Factor de Urgencia (Ki)", 0.0001, 0.0050, 0.0002, format="%.4f")
 
     # 4. Lógica de Asignación Automática (Para evitar cuellos de botella)
+    st.write("Columnas detectadas:", df.columns.tolist())
     def asignar_expedientes(data, num_gestores):
         # Ordenamos por tu columna rosa (Riesgo) de mayor a menor
         data = data.sort_values(by="Riesgo de entrada en Mora", ascending=False)
