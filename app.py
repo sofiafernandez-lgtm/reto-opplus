@@ -73,11 +73,17 @@ if df is not None:
                             color_discrete_map={'Alto Riesgo':'#e74c3c', 'Riesgo Medio':'#f1c40f', 'Bajo Riesgo':'#2ecc71'})
         st.plotly_chart(fig_riesgo, use_container_width=True)
     with col_b:
-        st.subheader("⚖️ Carga por Gestor")
-        fig_cargas = px.bar(x=list(cargas.keys()), y=list(cargas.values()), color_discrete_sequence=['#004481'])
-        st.plotly_chart(fig_cargas, use_container_width=True)
+        st.subheader("⚖️ Matriz Carga vs Riesgo (Nº Casos)")
+        # Gráfico de barras de los cuadrantes solicitados
+        cuadrantes_stats = df_final['Cuadrante'].value_counts().reset_index()
+        fig_cuadrantes = px.bar(
+            cuadrantes_stats, x='Cuadrante', y='count',
+            color='Cuadrante',
+            color_discrete_sequence=px.colors.qualitative.Prism
+        )
+        st.plotly_chart(fig_cuadrantes, use_container_width=True)
 
-    st.divider()
+    st.markdown("---")
 
     # --- NUEVAS LISTAS DE PRIORIDAD ---
     st.header("🔥 Listas de Prioridad Crítica")
