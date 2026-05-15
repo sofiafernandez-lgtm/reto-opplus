@@ -16,7 +16,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🏦 Sistema de Optimización de Expedientes | Reto Opplus")
+st.title("Sistema de Optimización de Expedientes | Reto Opplus")
 
 # 2. Cargar Datos
 @st.cache_data
@@ -42,7 +42,7 @@ if df is not None:
     # 4. Lógica de Asignación Automática (Para evitar cuellos de botella)
     def asignar_expedientes(data, num_gestores):
         # Ordenamos por tu columna rosa (Riesgo) de mayor a menor
-        data = data.sort_values(by="Riesgo de entrada en mora", ascending=False)
+        data = data.sort_values(by="Riesgo de entrada en Mora", ascending=False)
         
         gestores = {f"Gestor {i+1}": 0 for i in range(num_gestores)}
         asignaciones = []
@@ -84,7 +84,7 @@ if df is not None:
     row1_col1, row1_col2 = st.columns(2)
 
     with row1_col1:
-        st.subheader("📊 Balanceo de Carga (Evitando Cuellos de Botella)")
+        st.subheader("Balanceo de Carga (Evitando Cuellos de Botella)")
         # Creamos el gráfico de barras para ver que todos trabajan lo mismo
         fig_carga = px.bar(
             x=list(cargas.keys()), 
@@ -96,7 +96,7 @@ if df is not None:
         st.plotly_chart(fig_carga, use_container_width=True)
 
     with row1_col2:
-        st.subheader("⏳ Riesgo de Exceder los 60 días")
+        st.subheader("Riesgo de Exceder los 60 días")
         # Histograma de antigüedad
         fig_dias = px.histogram(
             df_final, 
@@ -108,10 +108,10 @@ if df is not None:
         st.plotly_chart(fig_dias, use_container_width=True)
 
     # 7. Tabla Detallada
-    st.subheader("🔍 Listado de Trabajo Priorizado")
+    st.subheader("Listado de Trabajo Priorizado")
     # Mostramos las columnas más importantes para que el jurado vea la lógica
-    columnas_mostrar = ['Gestor_Asignado', 'Riesgo de entrada en mora', 'CARGA OPERATIVA', 'diferencia de', 'Deuda actual']
-    st.dataframe(df_final[columnas_mostrar].style.background_gradient(subset=['Riesgo de entrada en mora'], cmap='Reds'), use_container_width=True)
+    columnas_mostrar = ['Gestor_Asignado', 'Riesgo de entrada en Mora', 'CARGA OPERATIVA', 'diferencia de días', 'Deuda actual']
+    st.dataframe(df_final[columnas_mostrar].style.background_gradient(subset=['Riesgo de entrada en Mora'], cmap='Reds'), use_container_width=True)
 
 else:
     st.info("💡 Por favor, sube el archivo Excel para activar el dashboard.")
