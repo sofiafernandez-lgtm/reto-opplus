@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# 1. Configuración y Estilo
-st.set_page_config(page_title="Opplus Strategy Dashboard", layout="wide")
+# 1. Configuración de página
+st.set_page_config(page_title="Opplus Smart Dashboard", layout="wide")
 
+# CSS para estilo BBVA/Opplus
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
@@ -14,17 +15,17 @@ st.markdown("""
         border-left: 5px solid #004481; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         margin-bottom: 20px;
     }
-    h1, h2, h3 { color: #004481; }
+    h1, h2, h3 { color: #004481; font-family: 'Segoe UI'; }
     </style>
     """, unsafe_allow_html=True)
 
 @st.cache_data
 def load_data():
     try:
+        # Cargamos la hoja "Modelo"
         df = pd.read_excel("OPPLUS RPLIT.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
-        # Clasificaciones para lógica de negocio
         mediana_carga = df['CARGA OPERATIVA'].median()
         
         def clasificar_riesgo(r):
@@ -37,6 +38,9 @@ def load_data():
 
         df['Nivel Riesgo'] = df['Riesgo de entrada en Mora'].apply(clasificar_riesgo)
         df['Nivel Carga'] = df['CARGA OPERATIVA'].apply(clasificar_carga)
+        # Creamos la columna Cuadrante para el gráfico de barras
+        df['Cuadrante'] = df['Nivel Carga'] + " / " + df['Nivel Riesgo']
+        
         return df
     except:
         return None
@@ -52,80 +56,87 @@ def asignar_expedientes(data, num_gestores):
     data['Gestor_Asignado'] = asignaciones
     return data, gestores
 
-# --- EJECUCIÓN ---
+# --- LÓGICA PRINCIPAL ---
 df = load_data()
 
 if df is not None:
-    st.title("📊 Panel Estratégico y Listas de Prioridad | Opplus")
+    st.title("📊 Inteligencia de Negocio | Optimización Opplus")
     
     with st.sidebar:
         st.image("https://www.opplus.es/wp-content/uploads/2021/04/logo-opplus.png", width=150)
-        n_gestores = st.sidebar.slider("Gestores", 10, 60, 39)
+        n_gestores = st.slider("Gestores Disponibles", 10, 60, 39)
 
     df_final, cargas = asignar_expedientes(df, n_gestores)
 
-    # Gráficos (Mantenemos lo anterior)
+    # SECCIÓN 1: GRÁFICOS ESTRATÉGICOS
     col_a, col_b = st.columns(2)
+
     with col_a:
-        st.subheader("🌡️ Distribución de Riesgo")
-        fig_riesgo = px.pie(df_final, names='Nivel Riesgo', hole=0.5,
-                            color='Nivel Riesgo',
-                            color_discrete_map={'Alto Riesgo':'#e74c3c', 'Riesgo Medio':'#f1c40f', 'Bajo Riesgo':'#2ecc71'})
+        st.subheader("🌡️ Volumen por Nivel de Riesgo")
+        fig_riesgo = px.pie(
+            df_final, names='Nivel Riesgo', hole=0.5,
+            color='Nivel Riesgo',
+            color_discrete_map={'Alto Riesgo':'#e74c3c', 'Riesgo Medio':'#f1c40f', 'Bajo Riesgo':'#2ecc71'}
+        )
         st.plotly_chart(fig_riesgo, use_container_width=True)
+
     with col_b:
         st.subheader("⚖️ Matriz Carga vs Riesgo (Nº Casos)")
-        # Gráfico de barras de los cuadrantes solicitados
+        # Recuperamos el gráfico de barras por cuadrantes
         cuadrantes_stats = df_final['Cuadrante'].value_counts().reset_index()
+        cuadrantes_stats.columns = ['Cuadrante', 'count']
         fig_cuadrantes = px.bar(
             cuadrantes_stats, x='Cuadrante', y='count',
             color='Cuadrante',
-            color_discrete_sequence=px.colors.qualitative.Prism
+            color_discrete_sequence=px.colors.qualitative.Safe
         )
         st.plotly_chart(fig_cuadrantes, use_container_width=True)
 
     st.markdown("---")
 
-    # --- NUEVAS LISTAS DE PRIORIDAD ---
-    st.header("🔥 Listas de Prioridad Crítica")
-    st.info("Estas listas muestran los expedientes que deben atenderse de forma inmediata según su perfil de carga y riesgo.")
-
+    # SECCIÓN 2: LISTAS TÁCTICAS DE PRIORIDAD
+    st.header("🔥 Listas de Prioridad Inmediata")
+    
     lp1, lp2 = st.columns(2)
 
     with lp1:
         st.markdown('<div class="prioridad-card">', unsafe_allow_html=True)
-        st.subheader("🔴 Lista 1: Alta Carga y Alto Riesgo")
-        st.write("*Casos complejos que requieren atención experta inmediata*")
+        st.subheader("🔴 Lista 1: Carga Alta / Riesgo Alto")
+        st.caption("Casos críticos que requieren mayor tiempo de gestión")
         
-        # Filtro: Carga Alta Y Riesgo Alto
         l1 = df_final[(df_final['Nivel Carga'] == 'Alta Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
         l1 = l1.sort_values(by="Riesgo de entrada en Mora", ascending=False)
         
         if not l1.empty:
-            for _, fila in l1.iterrows():
-                st.write(f"📍 **Expediente {fila['Nº de cliente']}** (Riesgo: {int(fila['Riesgo de entrada en Mora'])}) → Asignado a: `{fila['Gestor_Asignado']}`")
+            for _, fila in l1.head(15).iterrows(): # Mostramos los 15 más urgentes
+                st.write(f"📄 **Exp. {fila['Nº de cliente']}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
         else:
-            st.write("✅ No hay expedientes en este cuadrante.")
+            st.write("✅ Sin casos en este cuadrante.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with lp2:
         st.markdown('<div class="prioridad-card" style="border-left: 5px solid #f1c40f;">', unsafe_allow_html=True)
-        st.subheader("⚡ Lista 2: Baja Carga y Alto Riesgo")
-        st.write("*'Quick wins': Casos peligrosos pero rápidos de gestionar*")
+        st.subheader("⚡ Lista 2: Carga Baja / Riesgo Alto")
+        st.caption("Prioridad 'Quick Win': Alta peligrosidad, baja dificultad")
         
-        # Filtro: Carga Baja Y Riesgo Alto
         l2 = df_final[(df_final['Nivel Carga'] == 'Baja Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
         l2 = l2.sort_values(by="Riesgo de entrada en Mora", ascending=False)
         
         if not l2.empty:
-            for _, fila in l2.iterrows():
-                st.write(f"📍 **Expediente {fila['Nº de cliente']}** (Riesgo: {int(fila['Riesgo de entrada en Mora'])}) → Asignado a: `{fila['Gestor_Asignado']}`")
+            for _, fila in l2.head(15).iterrows():
+                st.write(f"📄 **Exp. {fila['Nº de cliente']}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
         else:
-            st.write("✅ No hay expedientes en este cuadrante.")
+            st.write("✅ Sin casos en este cuadrante.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.divider()
-    st.subheader("📋 Tabla Maestra de Asignaciones")
-    st.dataframe(df_final[['Nº de cliente', 'Gestor_Asignado', 'Nivel Riesgo', 'Nivel Carga', 'Deuda actual']], use_container_width=True)
+    
+    # SECCIÓN 3: TABLA GENERAL
+    st.subheader("📋 Censo Completo de Asignaciones")
+    st.dataframe(
+        df_final[['Nº de cliente', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días']],
+        use_container_width=True
+    )
 
 else:
-    st.error("Error al cargar el archivo. Comprueba que el Excel esté en el repositorio.")
+    st.error("Archivo no encontrado o formato incorrecto.")
