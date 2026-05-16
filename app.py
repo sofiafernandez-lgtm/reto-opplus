@@ -20,21 +20,24 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Modificamos la función de carga para que recalcule el riesgo matemáticamente usando exponenciales dinámicas
+# Calibramos la función para que no se desborde con números gigantes
 def process_data(umbral_alto, umbral_medio, exp_deuda, exp_tiempo):
     try:
         df = pd.read_excel("OPPLUS definitivo.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
-        # --- RECALCULO DE LA FUNCIÓN DE RIESGO EXPONENCIAL ---
-        # Multiplicamos el riesgo base del excel por un factor exponencial interactivo controlado desde el dashboard
-        # Esto penaliza exponencialmente si aumenta la deuda o los días de retraso según decida el usuario
-        factor_exponencial = (np.exp(df['Deuda actual'] * (exp_deuda / 100000)) * np.exp(df['diferencia de días'] * (exp_tiempo / 100)))
+        # --- RECALCULO MATEMÁTICO NORMALIZADO (EVITA OVERFLOW) ---
+        # Dividimos la deuda por su media y los días por su media para que los exponentes (0.0 a 5.0) 
+        # actúen como multiplicadores de peso reales y visibles sin romper Python.
+        deuda_media = df['Deuda actual'].mean() if df['Deuda actual'].mean() > 0 else 1000
+        dias_medios = df['diferencia de días'].mean() if df['diferencia de días'].mean() > 0 else 30
         
-        # Guardamos el nuevo riesgo dinámico
+        # Aplicamos el factor exponencial multiplicativo basado en tus sliders
+        factor_exponencial = np.exp((df['Deuda actual'] / deuda_media) * exp_deuda) * np.exp((df['diferencia de días'] / dias_medios) * exp_tiempo)
+        
+        # Guardamos el nuevo riesgo modificado dinámicamente
         df['Riesgo de entrada en Mora'] = df['Riesgo de entrada en Mora'] * factor_exponencial
-        
-        # ---------------------------------------------------
+        # --------------------------------------------------------
         
         mediana_carga = df['CARGA OPERATIVA'].median()
         
@@ -74,20 +77,20 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### 📈 Exponentes de Sensibilidad (Riesgo)")
-    st.caption("Ajusta la agresividad exponencial de las variables clave del modelo:")
+    st.caption("Ajusta el peso exponencial de cada variable de entrada:")
     
-    # NUEVO: Control interactivo para los exponentes matemáticos
-    e_deuda = st.slider("Sensibilidad de Deuda (λ1)", 0.0, 5.0, 1.0, step=0.1)
-    e_tiempo = st.slider("Sensibilidad de Días Abiertos (λ2)", 0.0, 5.0, 1.0, step=0.1)
+    # Sliders exponenciales calibrados (Modifican directamente la forma del gráfico)
+    e_deuda = st.slider("Sensibilidad de Deuda (λ1)", 0.0, 5.0, 0.0, step=0.1)
+    e_tiempo = st.slider("Sensibilidad de Días Abiertos (λ2)", 0.0, 5.0, 0.0, step=0.1)
     
     st.markdown("---")
     st.markdown("### 🎯 Reglas de Negocio")
-    u_alto = st.number_input("Mínimo para 'Alto Riesgo'", min_value=1500, max_value=20000, value=2000, step=500)
-    u_medio = st.number_input("Mínimo para 'Riesgo Medio'", min_value=500, max_value=1499, value=1000, step=100)
+    # Los umbrales iniciales los adaptamos al tamaño de los datos de tu nuevo Excel
+    u_alto = st.number_input("Mínimo para 'Alto Riesgo'", min_value=1500, max_value=500000, value=50000, step=5000)
+    u_medio = st.number_input("Mínimo para 'Riesgo Medio'", min_value=500, max_value=49999, value=15000, step=1000)
     dias_kpi = st.slider("Plazo crítico de control (Días)", 15, 90, 60, step=5)
 
 # --- LÓGICA PRINCIPAL ---
-# Pasamos los exponentes elegidos a la función matemática
 df = process_data(u_alto, u_medio, e_deuda, e_tiempo)
 
 if df is not None:
