@@ -69,7 +69,7 @@ if df is not None:
     df_final, cargas = asignar_expedientes(df, n_gestores)
 
     # ==========================================
-    # SECCIÓN NUEVA: PANEL DE KPIs ESTRATÉGICOS
+    # SECCIÓN: PANEL DE KPIs ESTRATÉGICOS
     # ==========================================
     kpi1, kpi2, kpi3 = st.columns(3)
     
@@ -77,37 +77,98 @@ if df is not None:
         st.metric(label="📦 Volumen de Expedientes", value=len(df_final))
         
     with kpi2:
-        # Cuenta cuántos casos están controlados a tiempo (<= 60 días)
         casos_bajo_limite = len(df_final[df_final['diferencia de días'] <= 60])
-        # Calcula el porcentaje del total
         pct_bajo_limite = (casos_bajo_limite / len(df_final)) * 100
         
         st.metric(
-            label="Índice de Cobertura (< 60 días)", 
+            label="⏱️ Índice de Cobertura (< 60 días)", 
             value=f"{pct_bajo_limite:.1f}%", 
             delta="Objetivo: > 90%", 
             delta_color="normal"
         )
         
     with kpi3:
-        # Casos críticos fuera de plazo (> 60 días)
         casos_criticos = len(df_final[df_final['diferencia de días'] > 60])
         st.metric(
-            label=" Alertas de Mora (> 60 días)", 
+            label="🚨 Alertas de Mora (> 60 días)", 
             value=casos_criticos, 
             delta="A regularizar urgente", 
             delta_color="inverse"
         )
         
     st.markdown("<br>", unsafe_allow_html=True)
-    # ==========================================
 
     # SECCIÓN 1: GRÁFICOS ESTRATÉGICOS
     col_a, col_b = st.columns(2)
 
     with col_a:
         st.subheader("Volumen por Nivel de Riesgo")
+        # Definimos el mapa de colores de forma segura en una sola línea compacta
+        colores_semaforo = {'Alto Riesgo': '#e74c3c', 'Riesgo Medio': '#f1c40f', 'Bajo Riesgo': '#2ecc71'}
+        
         fig_riesgo = px.pie(
             df_final, names='Nivel Riesgo', hole=0.5,
             color='Nivel Riesgo',
-            color_discrete_map={'Alto Riesgo':'#e74c3c', 'Riesgo Medio':'#f1c40f', 'Bajo
+            color_discrete_map=colores_semaforo
+        )
+        st.plotly_chart(fig_riesgo, use_container_width=True)
+
+    with col_b:
+        st.subheader("Matriz Carga vs Riesgo")
+        cuadrantes_stats = df_final['Cuadrante'].value_counts().reset_index()
+        cuadrantes_stats.columns = ['Cuadrante', 'count']
+        fig_cuadrantes = px.bar(
+            cuadrantes_stats, x='Cuadrante', y='count',
+            color='Cuadrante',
+            color_discrete_sequence=px.colors.qualitative.Safe
+        )
+        st.plotly_chart(fig_cuadrantes, use_container_width=True)
+
+    st.markdown("---")
+
+    # SECCIÓN 2: LISTAS TÁCTICAS DE PRIORIDAD
+    st.header("Listas de Asignación Inmediata")
+    
+    lp1, lp2 = st.columns(2)
+
+    with lp1:
+        st.markdown('<div class="prioridad-card">', unsafe_allow_html=True)
+        st.subheader("Lista 1: Carga Alta / Riesgo Alto")
+        st.caption("Casos críticos que requieren mayor tiempo de gestión")
+        
+        l1 = df_final[(df_final['Nivel Carga'] == 'Alta Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
+        l1 = l1.sort_values(by="Riesgo de entrada en Mora", ascending=False)
+        
+        if not l1.empty:
+            for _, fila in l1.head(15).iterrows(): 
+                st.write(f"📄 **Exp. {fila['Columna1']}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
+        else:
+            st.write("✅ Sin casos en este cuadrante.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with lp2:
+        st.markdown('<div class="prioridad-card" style="border-left: 5px solid #f1c40f;">', unsafe_allow_html=True)
+        st.subheader("Lista 2: Carga Baja / Riesgo Alto")
+        st.caption("Prioridad 'Quick Win': Alta peligrosidad, baja dificultad")
+        
+        l2 = df_final[(df_final['Nivel Carga'] == 'Baja Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
+        l2 = l2.sort_values(by="Riesgo de entrada en Mora", ascending=False)
+        
+        if not l2.empty:
+            for _, fila in l2.head(15).iterrows():
+                st.write(f"📄 **Exp. {fila['Columna1']}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
+        else:
+            st.write("✅ Sin casos en este cuadrante.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.divider()
+    
+    # SECCIÓN 3: TABLA GENERAL
+    st.subheader("📋 Censo Completo de Asignaciones")
+    st.dataframe(
+        df_final[['Columna1', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días']],
+        use_container_width=True
+    )
+
+else:
+    st.error("Archivo no encontrado o formato incorrecto.")
