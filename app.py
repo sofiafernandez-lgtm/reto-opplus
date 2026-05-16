@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import numpy as np
 
 # 1. Configuración de página
 st.set_page_config(page_title="Opplus Smart Dashboard", layout="wide")
@@ -19,18 +20,27 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-@st.cache_data
-def load_data():
+# Modificamos la función de carga para que recalcule el riesgo matemáticamente usando exponenciales dinámicas
+def process_data(umbral_alto, umbral_medio, exp_deuda, exp_tiempo):
     try:
-        # Cargamos la hoja "Modelo" del nuevo archivo OPPLUS definitivo.xlsx
         df = pd.read_excel("OPPLUS definitivo.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
+        
+        # --- RECALCULO DE LA FUNCIÓN DE RIESGO EXPONENCIAL ---
+        # Multiplicamos el riesgo base del excel por un factor exponencial interactivo controlado desde el dashboard
+        # Esto penaliza exponencialmente si aumenta la deuda o los días de retraso según decida el usuario
+        factor_exponencial = (np.exp(df['Deuda actual'] * (exp_deuda / 100000)) * np.exp(df['diferencia de días'] * (exp_tiempo / 100)))
+        
+        # Guardamos el nuevo riesgo dinámico
+        df['Riesgo de entrada en Mora'] = df['Riesgo de entrada en Mora'] * factor_exponencial
+        
+        # ---------------------------------------------------
         
         mediana_carga = df['CARGA OPERATIVA'].median()
         
         def clasificar_riesgo(r):
-            if r > 2000: return 'Alto Riesgo'
-            if r > 1000: return 'Riesgo Medio'
+            if r > umbral_alto: return 'Alto Riesgo'
+            if r > umbral_medio: return 'Riesgo Medio'
             return 'Bajo Riesgo'
         
         def clasificar_carga(c):
@@ -38,11 +48,11 @@ def load_data():
 
         df['Nivel Riesgo'] = df['Riesgo de entrada en Mora'].apply(clasificar_riesgo)
         df['Nivel Carga'] = df['CARGA OPERATIVA'].apply(clasificar_carga)
-        # Creamos la columna Cuadrante para el gráfico de barras
         df['Cuadrante'] = df['Nivel Carga'] + " / " + df['Nivel Riesgo']
         
         return df
-    except:
+    except Exception as e:
+        st.error(f"Error procesando fórmulas: {e}")
         return None
 
 def asignar_expedientes(data, num_gestores):
@@ -56,15 +66,32 @@ def asignar_expedientes(data, num_gestores):
     data['Gestor_Asignado'] = asignaciones
     return data, gestores
 
+# --- PANEL DE CONTROL INTERACTIVO (SIDEBAR) ---
+with st.sidebar:
+    st.image("https://www.opplus.es/wp-content/uploads/2021/04/logo-opplus.png", width=150)
+    st.markdown("### ⚙️ Parámetros del Modelo")
+    n_gestores = st.slider("Gestores Disponibles", 10, 60, 39)
+    
+    st.markdown("---")
+    st.markdown("### 📈 Exponentes de Sensibilidad (Riesgo)")
+    st.caption("Ajusta la agresividad exponencial de las variables clave del modelo:")
+    
+    # NUEVO: Control interactivo para los exponentes matemáticos
+    e_deuda = st.slider("Sensibilidad de Deuda (λ1)", 0.0, 5.0, 1.0, step=0.1)
+    e_tiempo = st.slider("Sensibilidad de Días Abiertos (λ2)", 0.0, 5.0, 1.0, step=0.1)
+    
+    st.markdown("---")
+    st.markdown("### 🎯 Reglas de Negocio")
+    u_alto = st.number_input("Mínimo para 'Alto Riesgo'", min_value=1500, max_value=20000, value=2000, step=500)
+    u_medio = st.number_input("Mínimo para 'Riesgo Medio'", min_value=500, max_value=1499, value=1000, step=100)
+    dias_kpi = st.slider("Plazo crítico de control (Días)", 15, 90, 60, step=5)
+
 # --- LÓGICA PRINCIPAL ---
-df = load_data()
+# Pasamos los exponentes elegidos a la función matemática
+df = process_data(u_alto, u_medio, e_deuda, e_tiempo)
 
 if df is not None:
     st.title("Modelo de priorización | Optimización Opplus")
-    
-    with st.sidebar:
-        st.image("https://www.opplus.es/wp-content/uploads/2021/04/logo-opplus.png", width=150)
-        n_gestores = st.slider("Gestores Disponibles", 10, 60, 39)
 
     df_final, cargas = asignar_expedientes(df, n_gestores)
 
@@ -77,20 +104,19 @@ if df is not None:
         st.metric(label="📦 Volumen de Expedientes", value=len(df_final))
         
     with kpi2:
-        casos_bajo_limite = len(df_final[df_final['diferencia de días'] <= 60])
+        casos_bajo_limite = len(df_final[df_final['diferencia de días'] <= dias_kpi])
         pct_bajo_limite = (casos_bajo_limite / len(df_final)) * 100
-        
         st.metric(
-            label="⏱️ Índice de Cobertura (< 60 días)", 
+            label=f"⏱️ Índice de Cobertura (< {dias_kpi} días)", 
             value=f"{pct_bajo_limite:.1f}%", 
             delta="Objetivo: > 90%", 
             delta_color="normal"
         )
         
     with kpi3:
-        casos_criticos = len(df_final[df_final['diferencia de días'] > 60])
+        casos_criticos = len(df_final[df_final['diferencia de días'] > dias_kpi])
         st.metric(
-            label="🚨 Alertas de Mora (> 60 días)", 
+            label="🚨 Alertas de Mora (> {dias_kpi} días)", 
             value=casos_criticos, 
             delta="A regularizar urgente", 
             delta_color="inverse"
@@ -103,9 +129,7 @@ if df is not None:
 
     with col_a:
         st.subheader("Volumen por Nivel de Riesgo")
-        # Definimos el mapa de colores de forma segura en una sola línea compacta
         colores_semaforo = {'Alto Riesgo': '#e74c3c', 'Riesgo Medio': '#f1c40f', 'Bajo Riesgo': '#2ecc71'}
-        
         fig_riesgo = px.pie(
             df_final, names='Nivel Riesgo', hole=0.5,
             color='Nivel Riesgo',
@@ -166,7 +190,7 @@ if df is not None:
     # SECCIÓN 3: TABLA GENERAL
     st.subheader("📋 Censo Completo de Asignaciones")
     st.dataframe(
-        df_final[['Columna1', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días']],
+        df_final[['Columna1', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'Riesgo de entrada en Mora']],
         use_container_width=True
     )
 
