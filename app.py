@@ -23,7 +23,7 @@ st.markdown("""
 def load_data():
     try:
         # Cargamos la hoja "Modelo"
-        df = pd.read_excel("OPPLUS RPLIT.xlsx", sheet_name="Modelo")
+        df = pd.read_excel("OPPLUS definitivo.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
         mediana_carga = df['CARGA OPERATIVA'].median()
