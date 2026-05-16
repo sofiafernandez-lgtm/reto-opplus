@@ -71,7 +71,6 @@ def asignar_expedientes(data, num_gestores):
 
 # --- PANEL DE CONTROL INTERACTIVO (SIDEBAR) ---
 with st.sidebar:
-    st.image("https://www.opplus.es/wp-content/uploads/2021/04/logo-opplus.png", width=150)
     st.markdown("### ⚙️ Parámetros del Modelo")
     n_gestores = st.slider("Gestores Disponibles", 10, 60, 39)
     
