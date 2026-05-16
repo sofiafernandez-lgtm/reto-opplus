@@ -27,16 +27,14 @@ def process_data(umbral_alto, umbral_medio, exp_deuda, exp_tiempo):
         df.columns = [c.strip() for c in df.columns]
         
         # --- RECALCULO MATEMÁTICO NORMALIZADO (EVITA OVERFLOW) ---
-        # Dividimos la deuda por su media y los días por su media para que los exponentes (0.0 a 5.0) 
-        # actúen como multiplicadores de peso reales y visibles sin romper Python.
         deuda_media = df['Deuda actual'].mean() if df['Deuda actual'].mean() > 0 else 1000
         dias_medios = df['diferencia de días'].mean() if df['diferencia de días'].mean() > 0 else 30
         
         # Aplicamos el factor exponencial multiplicativo basado en tus sliders
         factor_exponencial = np.exp((df['Deuda actual'] / deuda_media) * exp_deuda) * np.exp((df['diferencia de días'] / dias_medios) * exp_tiempo)
         
-        # Guardamos el nuevo riesgo modificado dinámicamente
-        df['Riesgo de entrada en Mora'] = df['Riesgo de entrada en Mora'] * factor_exponencial
+        # Guardamos el nuevo riesgo modificado dinámicamente y redondeamos
+        df['Riesgo de entrada en Mora'] = (df['Riesgo de entrada en Mora'] * factor_exponencial).round(0)
         # --------------------------------------------------------
         
         mediana_carga = df['CARGA OPERATIVA'].median()
@@ -78,15 +76,15 @@ with st.sidebar:
     st.markdown("### 📈 Exponentes de Sensibilidad (Riesgo)")
     st.caption("Ajusta el peso exponencial de cada variable de entrada:")
     
-    # Sliders exponenciales calibrados (Modifican directamente la forma del gráfico)
-    e_deuda = st.slider("Sensibilidad de Deuda (λ1)", 0.0, 5.0, 0.0, step=0.1)
-    e_tiempo = st.slider("Sensibilidad de Días Abiertos (λ2)", 0.0, 5.0, 0.0, step=0.1)
+    # CORRECCIÓN: Ahora empiezan por defecto en 1.0 para que el modelo ya aplique peso inicial
+    e_deuda = st.slider("Sensibilidad de Deuda (λ1)", 0.0, 5.0, 1.0, step=0.1)
+    e_tiempo = st.slider("Sensibilidad de Días Abiertos (λ2)", 0.0, 5.0, 1.0, step=0.1)
     
     st.markdown("---")
     st.markdown("### 🎯 Reglas de Negocio")
-    # Los umbrales iniciales los adaptamos al tamaño de los datos de tu nuevo Excel
-    u_alto = st.number_input("Mínimo para 'Alto Riesgo'", min_value=1500, max_value=500000, value=50000, step=5000)
-    u_medio = st.number_input("Mínimo para 'Riesgo Medio'", min_value=500, max_value=49999, value=15000, step=1000)
+    # CORRECCIÓN: Umbrales adaptados matemáticamente para que la app empiece con colores equilibrados
+    u_alto = st.number_input("Mínimo para 'Alto Riesgo'", min_value=1500, max_value=500000, value=25000, step=5000)
+    u_medio = st.number_input("Mínimo para 'Riesgo Medio'", min_value=500, max_value=49999, value=8000, step=1000)
     dias_kpi = st.slider("Plazo crítico de control (Días)", 15, 90, 60, step=5)
 
 # --- LÓGICA PRINCIPAL ---
@@ -118,7 +116,7 @@ if df is not None:
     with kpi3:
         casos_criticos = len(df_final[df_final['diferencia de días'] > dias_kpi])
         st.metric(
-            label="🚨 Alertas de Mora (> {dias_kpi} días)", 
+            label=f"🚨 Alertas de Mora (> {dias_kpi} días)", 
             value=casos_criticos, 
             delta="A regularizar urgente", 
             delta_color="inverse"
