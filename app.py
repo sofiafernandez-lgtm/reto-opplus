@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import numpy as np
 
 # 1. Configuración de página
 st.set_page_config(page_title="Opplus Smart Dashboard", layout="wide")
@@ -20,22 +19,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Calibramos la función para que no se desborde con números gigantes
-def process_data(umbral_alto, umbral_medio, exp_deuda, exp_tiempo):
+# Función simplificada: Lee directamente los datos originales sin aplicar factores exponenciales
+def process_data(umbral_alto, umbral_medio):
     try:
         df = pd.read_excel("OPPLUS definitivo.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
-        # --- RECALCULO MATEMÁTICO NORMALIZADO (EVITA OVERFLOW) ---
-        deuda_media = df['Deuda actual'].mean() if df['Deuda actual'].mean() > 0 else 1000
-        dias_medios = df['diferencia de días'].mean() if df['diferencia de días'].mean() > 0 else 30
-        
-        # Aplicamos el factor exponencial multiplicativo basado en tus sliders
-        factor_exponencial = np.exp((df['Deuda actual'] / deuda_media) * exp_deuda) * np.exp((df['diferencia de días'] / dias_medios) * exp_tiempo)
-        
-        # Guardamos el nuevo riesgo modificado dinámicamente y redondeamos
-        df['Riesgo de entrada en Mora'] = (df['Riesgo de entrada en Mora'] * factor_exponencial).round(0)
-        # --------------------------------------------------------
+        # Redondeamos el riesgo original del Excel para que se vea limpio
+        df['Riesgo de entrada en Mora'] = df['Riesgo de entrada en Mora'].round(0)
         
         mediana_carga = df['CARGA OPERATIVA'].median()
         
@@ -57,6 +48,7 @@ def process_data(umbral_alto, umbral_medio, exp_deuda, exp_tiempo):
         return None
 
 def asignar_expedientes(data, num_gestores):
+    # Ordenamos el censo basándonos estrictamente en el riesgo del Excel
     data = data.sort_values(by="Riesgo de entrada en Mora", ascending=False)
     gestores = {f"Gestor {i+1}": 0 for i in range(num_gestores)}
     asignaciones = []
@@ -73,22 +65,14 @@ with st.sidebar:
     n_gestores = st.slider("Gestores Disponibles", 10, 60, 39)
     
     st.markdown("---")
-    st.markdown("### 📈 Exponentes de Sensibilidad (Riesgo)")
-    st.caption("Ajusta el peso exponencial de cada variable de entrada:")
-    
-    # CORRECCIÓN: Ahora empiezan por defecto en 1.0 para que el modelo ya aplique peso inicial
-    e_deuda = st.slider("Sensibilidad de Deuda (λ1)", 0.0, 5.0, 1.0, step=0.1)
-    e_tiempo = st.slider("Sensibilidad de Días Abiertos (λ2)", 0.0, 5.0, 1.0, step=0.1)
-    
-    st.markdown("---")
     st.markdown("### 🎯 Reglas de Negocio")
-    # CORRECCIÓN: Umbrales adaptados matemáticamente para que la app empiece con colores equilibrados
-    u_alto = st.number_input("Mínimo para 'Alto Riesgo'", min_value=1500, max_value=500000, value=25000, step=5000)
-    u_medio = st.number_input("Mínimo para 'Riesgo Medio'", min_value=500, max_value=49999, value=8000, step=1000)
+    # Los umbrales iniciales están calibrados con los datos de tu Excel original
+    u_alto = st.number_input("Mínimo para 'Alto Riesgo'", min_value=500, max_value=100000, value=3000, step=500)
+    u_medio = st.number_input("Mínimo para 'Riesgo Medio'", min_value=100, max_value=49999, value=1500, step=100)
     dias_kpi = st.slider("Plazo crítico de control (Días)", 15, 90, 60, step=5)
 
 # --- LÓGICA PRINCIPAL ---
-df = process_data(u_alto, u_medio, e_deuda, e_tiempo)
+df = process_data(u_alto, u_medio)
 
 if df is not None:
     st.title("Modelo de priorización | Optimización Opplus")
@@ -108,18 +92,14 @@ if df is not None:
         pct_bajo_limite = (casos_bajo_limite / len(df_final)) * 100
         st.metric(
             label=f"⏱️ Índice de Cobertura (< {dias_kpi} días)", 
-            value=f"{pct_bajo_limite:.1f}%", 
-            delta="Objetivo: > 90%", 
-            delta_color="normal"
+            value=f"{pct_bajo_limite:.1f}%"
         )
         
     with kpi3:
         casos_criticos = len(df_final[df_final['diferencia de días'] > dias_kpi])
         st.metric(
             label=f"🚨 Alertas de Mora (> {dias_kpi} días)", 
-            value=casos_criticos, 
-            delta="A regularizar urgente", 
-            delta_color="inverse"
+            value=casos_criticos
         )
         
     st.markdown("<br>", unsafe_allow_html=True)
@@ -158,7 +138,7 @@ if df is not None:
     with lp1:
         st.markdown('<div class="prioridad-card">', unsafe_allow_html=True)
         st.subheader("Lista 1: Carga Alta / Riesgo Alto")
-        st.caption("Casos críticos que requieren mayor tiempo de gestión")
+        st.caption("Casos críticos reales que requieren mayor tiempo de gestión")
         
         l1 = df_final[(df_final['Nivel Carga'] == 'Alta Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
         l1 = l1.sort_values(by="Riesgo de entrada en Mora", ascending=False)
@@ -173,7 +153,7 @@ if df is not None:
     with lp2:
         st.markdown('<div class="prioridad-card" style="border-left: 5px solid #f1c40f;">', unsafe_allow_html=True)
         st.subheader("Lista 2: Carga Baja / Riesgo Alto")
-        st.caption("Prioridad 'Quick Win': Alta peligrosidad, baja dificultad")
+        st.caption("Prioridad 'Quick Win': Alta peligrosidad real, baja dificultad operativa")
         
         l2 = df_final[(df_final['Nivel Carga'] == 'Baja Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
         l2 = l2.sort_values(by="Riesgo de entrada en Mora", ascending=False)
