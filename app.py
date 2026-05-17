@@ -25,7 +25,7 @@ def process_data(umbral_alto, umbral_medio):
         df = pd.read_excel("OPPLUS definitivo.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
-        # Redondeamos el riesgo original del Excel para que se vea limpio
+        # Redondeamos el riesgo original del Excel para que se vea limpio y sin decimales largos
         df['Riesgo de entrada en Mora'] = df['Riesgo de entrada en Mora'].round(0)
         
         mediana_carga = df['CARGA OPERATIVA'].median()
@@ -145,7 +145,8 @@ if df is not None:
         
         if not l1.empty:
             for _, fila in l1.head(15).iterrows(): 
-                st.write(f"📄 **Exp. {fila['Columna1']}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
+                # Ajustado a 'Nº de cliente' para tu nuevo archivo Excel
+                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
         else:
             st.write("✅ Sin casos en este cuadrante.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -160,7 +161,8 @@ if df is not None:
         
         if not l2.empty:
             for _, fila in l2.head(15).iterrows():
-                st.write(f"📄 **Exp. {fila['Columna1']}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
+                # Ajustado a 'Nº de cliente' para tu nuevo archivo Excel
+                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
         else:
             st.write("✅ Sin casos en este cuadrante.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -170,7 +172,8 @@ if df is not None:
     # SECCIÓN 3: TABLA GENERAL
     st.subheader("📋 Censo Completo de Asignaciones")
     st.dataframe(
-        df_final[['Columna1', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'Riesgo de entrada en Mora']],
+        # Ajustado a 'Nº de cliente' para mapear correctamente tu nuevo archivo Excel
+        df_final[['Nº de cliente', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'Riesgo de entrada en Mora']],
         use_container_width=True
     )
 
