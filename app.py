@@ -22,7 +22,7 @@ st.markdown("""
 # Función simplificada: Lee directamente los datos originales sin factores exponenciales
 def process_data(umbral_alto, umbral_medio):
     try:
-        df = pd.read_excel("OPPLUS definitivo.xlsx", sheet_name="Modelo")
+        df = pd.read_excel("OPPLUS mod1.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
         # Redondeamos el riesgo original del Excel para que se vea limpio y sin decimales largos
