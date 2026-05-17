@@ -95,7 +95,6 @@ if df is not None:
     # =========================================================
     # SECCIÓN: PANEL DE KPIs ESTRATÉGICOS (MÉTRICAS EN FILA)
     # =========================================================
-    # Cambiamos a 4 columnas para dar espacio al nuevo KPI de Tiempo Medio
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     
     with kpi1:
@@ -117,7 +116,6 @@ if df is not None:
         )
 
     with kpi4:
-        # NUEVO KPI AÑADIDO AQUÍ: Calcula dinámicamente la media de los minutos de llamada
         media_tiempo = df_final['T(min) de comunicación'].mean()
         st.metric(
             label="📞 Tiempo Medio de Comunicación", 
@@ -130,42 +128,4 @@ if df is not None:
     col_a, col_b = st.columns(2)
 
     with col_a:
-        st.subheader("Volumen por Nivel de Riesgo")
-        colores_semaforo = {'Alto Riesgo': '#e74c3c', 'Riesgo Medio': '#f1c40f', 'Bajo Riesgo': '#2ecc71'}
-        fig_riesgo = px.pie(
-            df_final, names='Nivel Riesgo', hole=0.5,
-            color='Nivel Riesgo',
-            color_discrete_map=colores_semaforo
-        )
-        st.plotly_chart(fig_riesgo, use_container_width=True)
-
-    with col_b:
-        st.subheader("Matriz Carga vs Riesgo")
-        cuadrantes_stats = df_final['Cuadrante'].value_counts().reset_index()
-        cuadrantes_stats.columns = ['Cuadrante', 'count']
-        fig_cuadrantes = px.bar(
-            cuadrantes_stats, x='Cuadrante', y='count',
-            color='Cuadrante',
-            color_discrete_sequence=px.colors.qualitative.Safe
-        )
-        st.plotly_chart(fig_cuadrantes, use_container_width=True)
-
-    st.markdown("---")
-
-    # SECCIÓN 2: LISTAS TÁCTICAS DE PRIORIDAD
-    st.header("Listas de Asignación Inmediata")
-    
-    lp1, lp2 = st.columns(2)
-
-    with lp1:
-        st.markdown('<div class="prioridad-card">', unsafe_allow_html=True)
-        st.subheader("Lista 1: Carga Alta / Riesgo Alto")
-        st.caption("Casos críticos reales que requieren mayor tiempo de gestión")
-        
-        l1 = df_final[(df_final['Nivel Carga'] == 'Alta Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
-        l1 = l1.sort_values(by="Riesgo de entrada en Mora", ascending=False)
-        
-        if not l1.empty:
-            for _, fila in l1.head(15).iterrows(): 
-                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['T(min) de comunicación']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
-        else:
+        st.subheader
