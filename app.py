@@ -19,14 +19,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Función simplificada: Lee directamente los datos originales sin factores exponenciales
+# Función: Lee directamente los datos del nuevo Excel
 def process_data(umbral_alto, umbral_medio):
     try:
-        # Lee el archivo subido
-        df = pd.read_excel("OPPLUS mod1.xlsx", sheet_name="Modelo")
+        # ADAPTADO: Nombre del nuevo archivo Excel
+        df = pd.read_excel("OPPLUS.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
-        # Redondeamos el riesgo original del Excel para que se vea limpio
+        # Redondeamos el riesgo original del Excel para la interfaz gráfica
         df['Riesgo de entrada en Mora'] = df['Riesgo de entrada en Mora'].round(0)
         
         mediana_carga = df['CARGA OPERATIVA'].median()
@@ -65,9 +65,9 @@ def asignar_expedientes(data, num_gestores):
         
         asignaciones.append(gestor_libre)
         
-        # Sumamos los criterios a la mochila del gestor elegido
+        # Sumamos los criterios a la mochila del gestor elegido utilizando la nueva columna 'Tiempo invertido'
         gestores[gestor_libre]["carga"] += fila['CARGA OPERATIVA']
-        gestores[gestor_libre]["minutos"] += fila['T(min) de comunicación']
+        gestores[gestor_libre]["minutos"] += fila['Tiempo invertido']
         gestores[gestor_libre]["expedientes_totales"] += 1
         
     data['Gestor_Asignado'] = asignaciones
@@ -116,7 +116,8 @@ if df is not None:
         )
 
     with kpi4:
-        media_tiempo = df_final['T(min) de comunicación'].mean()
+        # ADAPTADO: Ahora calcula la media sobre la nueva columna 'Tiempo invertido'
+        media_tiempo = df_final['Tiempo invertido'].mean()
         st.metric(
             label="📞 Tiempo Medio de Comunicación", 
             value=f"{media_tiempo:.1f} min"
@@ -124,7 +125,7 @@ if df is not None:
         
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # SECCIÓN 1: GRÁFICOS ESTRATÉGICOS (Alineación perfecta aquí)
+    # SECCIÓN 1: GRÁFICOS ESTRATÉGICOS
     col_a, col_b = st.columns(2)
 
     with col_a:
@@ -165,7 +166,8 @@ if df is not None:
         
         if not l1.empty:
             for _, fila in l1.head(15).iterrows(): 
-                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['T(min) de comunicación']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
+                # ADAPTADO: Muestra 'Nº de cliente' y 'Tiempo invertido'
+                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['Tiempo invertido']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
         else:
             st.write("✅ Sin casos en este cuadrante.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -180,7 +182,8 @@ if df is not None:
         
         if not l2.empty:
             for _, fila in l2.head(15).iterrows():
-                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['T(min) de comunicación']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
+                # ADAPTADO: Muestra 'Nº de cliente' y 'Tiempo invertido'
+                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['Tiempo invertido']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
         else:
             st.write("✅ Sin casos en este cuadrante.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -190,7 +193,8 @@ if df is not None:
     # SECCIÓN 3: TABLA GENERAL
     st.subheader("📋 Censo Completo de Asignaciones")
     st.dataframe(
-        df_final[['Nº de cliente', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'T(min) de comunicación', 'Riesgo de entrada en Mora']],
+        # ADAPTADO: Columnas clave mapeadas según el nuevo censo 'OPPLUS.xlsx'
+        df_final[['Nº de cliente', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'Tiempo invertido', 'Riesgo de entrada en Mora']],
         use_container_width=True
     )
 
