@@ -22,6 +22,7 @@ st.markdown("""
 # Función simplificada: Lee directamente los datos originales sin factores exponenciales
 def process_data(umbral_alto, umbral_medio):
     try:
+        # ACTUALIZADO: Cambiado al nombre exacto de tu nuevo archivo
         df = pd.read_excel("OPPLUS mod1.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
@@ -51,7 +52,7 @@ def asignar_expedientes(data, num_gestores):
     # Ordenamos el censo basándonos estrictamente en el riesgo del Excel
     data = data.sort_values(by="Riesgo de entrada en Mora", ascending=False)
     
-    # Estructura para controlar tanto la carga como los minutos de comunicación por gestor
+    # Estructura para controlar la carga, minutos de comunicación y volumen por gestor
     gestores = {f"Gestor {i+1}": {"carga": 0, "minutos": 0, "expedientes_totales": 0} for i in range(num_gestores)}
     asignaciones = []
     
@@ -165,4 +166,46 @@ if df is not None:
     with lp2:
         st.markdown('<div class="prioridad-card" style="border-left: 5px solid #f1c40f;">', unsafe_allow_html=True)
         st.subheader("Lista 2: Carga Baja / Riesgo Alto")
-        st.caption("Prioridad 'Quick
+        # CORREGIDO: Línea de texto unificada para evitar el SyntaxError
+        st.caption("Prioridad 'Quick Win': Alta peligrosidad real, baja dificultad operativa")
+        
+        l2 = df_final[(df_final['Nivel Carga'] == 'Baja Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
+        l2 = l2.sort_values(by="Riesgo de entrada en Mora", ascending=False)
+        
+        if not l2.empty:
+            for _, fila in l2.head(15).iterrows():
+                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['T(min) de comunicación']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
+        else:
+            st.write("✅ Sin casos en este cuadrante.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.divider()
+    
+    # SECCIÓN 3: TABLA GENERAL
+    st.subheader("📋 Censo Completo de Asignaciones")
+    st.dataframe(
+        df_final[['Nº de cliente', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'T(min) de comunicación', 'Riesgo de entrada en Mora']],
+        use_container_width=True
+    )
+
+    st.divider()
+
+    # SECCIÓN 4: TABLA DE BALANCE DE TIEMPOS POR GESTOR
+    st.subheader("📊 Balance de Tiempos y Cargas por Gestor")
+    st.caption("Verifica el reparto equitativo del tiempo total de comunicación y volumen de trabajo en el equipo.")
+    
+    datos_tabla_gestores = []
+    for g_id, métricas in estadísticas_gestores.items():
+        datos_tabla_gestores.append({
+            "Gestor Asignado": g_id,
+            "Expedientes Asignados": métricas["expedientes_totales"],
+            "Tiempo Total (Minutos)": round(métricas["minutos"], 1),
+            "Tiempo Total (Horas)": round(métricas["minutos"] / 60, 2),
+            "Carga Operativa Total": round(métricas["carga"], 2)
+        })
+        
+    df_tiempos_gestores = pd.DataFrame(datos_tabla_gestores)
+    st.dataframe(df_tiempos_gestores, use_container_width=True, hide_index=True)
+
+else:
+    st.error("Archivo no encontrado o formato incorrecto.")
