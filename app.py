@@ -52,7 +52,7 @@ def asignar_expedientes(data, num_gestores):
     data = data.sort_values(by="Riesgo de entrada en Mora", ascending=False)
     
     # Estructura para controlar tanto la carga como los minutos de comunicación por gestor
-    gestores = {f"Gestor {i+1}": {"carga": 0, "minutos": 0} for i in range(num_gestores)}
+    gestores = {f"Gestor {i+1}": {"carga": 0, "minutos": 0, "expedientes_totales": 0} for i in range(num_gestores)}
     asignaciones = []
     
     for _, fila in data.iterrows():
@@ -64,9 +64,10 @@ def asignar_expedientes(data, num_gestores):
         
         asignaciones.append(gestor_libre)
         
-        # Sumamos los dos criterios a la mochila del gestor elegido
+        # Sumamos los criterios a la mochila del gestor elegido
         gestores[gestor_libre]["carga"] += fila['CARGA OPERATIVA']
         gestores[gestor_libre]["minutos"] += fila['T(min) de comunicación']
+        gestores[gestor_libre]["expedientes_totales"] += 1
         
     data['Gestor_Asignado'] = asignaciones
     return data, gestores
@@ -164,26 +165,4 @@ if df is not None:
     with lp2:
         st.markdown('<div class="prioridad-card" style="border-left: 5px solid #f1c40f;">', unsafe_allow_html=True)
         st.subheader("Lista 2: Carga Baja / Riesgo Alto")
-        st.caption("Prioridad 'Quick Win': Alta peligrosidad real, baja dificultad operativa")
-        
-        l2 = df_final[(df_final['Nivel Carga'] == 'Baja Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
-        l2 = l2.sort_values(by="Riesgo de entrada en Mora", ascending=False)
-        
-        if not l2.empty:
-            for _, fila in l2.head(15).iterrows():
-                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['T(min) de comunicación']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
-        else:
-            st.write("✅ Sin casos en este cuadrante.")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    st.divider()
-    
-    # SECCIÓN 3: TABLA GENERAL
-    st.subheader("📋 Censo Completo de Asignaciones")
-    st.dataframe(
-        df_final[['Nº de cliente', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'T(min) de comunicación', 'Riesgo de entrada en Mora']],
-        use_container_width=True
-    )
-
-else:
-    st.error("Archivo no encontrado o formato incorrecto.")
+        st.caption("Prioridad 'Quick
