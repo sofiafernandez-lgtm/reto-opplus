@@ -22,21 +22,19 @@ st.markdown("""
 # Función: Lee directamente los datos del nuevo Excel
 def process_data(umbral_alto, umbral_medio):
     try:
+        # Cargamos el archivo del censo
         df = pd.read_excel("OPPLUS.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
         # Redondeamos el riesgo original del Excel para la interfaz gráfica
         df['Riesgo de entrada en Mora'] = df['Riesgo de entrada en Mora'].round(0)
         
-        # ⏱️ NUEVA VARIACIÓN DE TIEMPO: El tiempo de gestión se calcula como 5 * Carga Operativa
-        df['Tiempo invertido'] = df['CARGA OPERATIVA'] * 5
-        
         def clasificar_riesgo(r):
             if r > umbral_alto: return 'Alto Riesgo'
             if r > umbral_medio: return 'Riesgo Medio'
             return 'Bajo Riesgo'
         
-        # 📊 NUEVA REGLA DE NEGOCIO: Alta Carga a partir de 2, Baja Carga si es menor
+        # 📊 NUEVA REGLA DE NEGOCIO: Alta Carga a partir de 2, Baja Carga si es menor de 2
         def clasificar_carga(c):
             return 'Alta Carga' if c >= 2 else 'Baja Carga'
 
@@ -53,12 +51,12 @@ def asignar_expedientes(data, num_gestores):
     # Ordenamos el censo basándonos estrictamente en el riesgo del Excel
     data = data.sort_values(by="Riesgo de entrada en Mora", ascending=False)
     
-    # Estructura para controlar la carga, minutos de comunicación y volumen por gestor
+    # Estructura para controlar la carga, minutos e histórico por gestor
     gestores = {f"Gestor {i+1}": {"carga": 0, "minutos": 0, "expedientes_totales": 0} for i in range(num_gestores)}
     asignaciones = []
     
     for _, fila in data.iterrows():
-        # Buscamos el gestor óptimo: primero por menor cantidad de minutos, y en caso de empate por menor carga
+        # Buscamos el gestor óptimo: primero por menor cantidad de minutos totales asignados
         gestor_libre = min(
             gestores.keys(), 
             key=lambda g: (gestores[g]["minutos"], gestores[g]["carga"])
@@ -66,7 +64,7 @@ def asignar_expedientes(data, num_gestores):
         
         asignaciones.append(gestor_libre)
         
-        # Sumamos los criterios a la mochila del gestor elegido utilizando la nueva columna 'Tiempo invertido' recalculada
+        # Sumamos los criterios a la mochila utilizando la columna real 'Tiempo invertido' del Excel
         gestores[gestor_libre]["carga"] += fila['CARGA OPERATIVA']
         gestores[gestor_libre]["minutos"] += fila['Tiempo invertido']
         gestores[gestor_libre]["expedientes_totales"] += 1
@@ -117,10 +115,10 @@ if df is not None:
         )
 
     with kpi4:
-        # AJUSTADO: Refleja el nuevo enfoque de tiempo de gestión proyectado integral
+        # Tomamos el promedio real directo de la columna de tiempos de gestión del Excel
         media_tiempo = df_final['Tiempo invertido'].mean()
         st.metric(
-            label="⏱️ Tiempo Medio Estimado de Gestión", 
+            label="⏱️ Tiempo Medio de Gestión", 
             value=f"{media_tiempo:.1f} min"
         )
         
@@ -160,7 +158,7 @@ if df is not None:
     with lp1:
         st.markdown('<div class="prioridad-card">', unsafe_allow_html=True)
         st.subheader("Lista 1: Carga Alta / Riesgo Alto")
-        st.caption("Casos críticos reales que requieren mayor tiempo de gestión (Carga ≥ 2)")
+        st.caption("Casos críticos que requieren mayor tiempo de gestión (Carga ≥ 2)")
         
         l1 = df_final[(df_final['Nivel Carga'] == 'Alta Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
         l1 = l1.sort_values(by="Riesgo de entrada en Mora", ascending=False)
@@ -175,7 +173,46 @@ if df is not None:
     with lp2:
         st.markdown('<div class="prioridad-card" style="border-left: 5px solid #f1c40f;">', unsafe_allow_html=True)
         st.subheader("Lista 2: Carga Baja / Riesgo Alto")
-        st.caption("Prioridad 'Quick Win': Alta peligrosidad real, baja dificultad operativa (Carga < 2)")
+        st.caption("Prioridad 'Quick Win': Alta peligrosidad, baja dificultad operativa (Carga < 2)")
         
         l2 = df_final[(df_final['Nivel Carga'] == 'Baja Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
-        l2 = l2.sort_
+        # CORREGIDO: Se repara la sintaxis truncada que causaba la caída de la aplicación
+        l2 = l2.sort_values(by="Riesgo de entrada en Mora", ascending=False)
+        
+        if not l2.empty:
+            for _, fila in l2.head(15).iterrows():
+                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['Tiempo invertido']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
+        else:
+            st.write("✅ Sin casos en este cuadrante.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    st.divider()
+    
+    # SECCIÓN 3: TABLA GENERAL
+    st.subheader("📋 Censo Completo de Asignaciones")
+    st.dataframe(
+        df_final[['Nº de cliente', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'Tiempo invertido', 'Riesgo de entrada en Mora']],
+        use_container_width=True
+    )
+
+    st.divider()
+
+    # SECCIÓN 4: TABLA DE BALANCE DE TIEMPOS POR GESTOR
+    st.subheader("📊 Balance de Tiempos y Cargas por Gestor")
+    st.caption("Verifica el reparto equitativo del tiempo total y volumen de trabajo en el equipo.")
+    
+    datos_tabla_gestores = []
+    for g_id, métricas in estadísticas_gestores.items():
+        datos_tabla_gestores.append({
+            "Gestor Asignado": g_id,
+            "Expedientes Asignados": métricas["expedientes_totales"],
+            "Tiempo Total (Minutos)": round(métricas["minutos"], 1),
+            "Tiempo Total (Horas)": round(métricas["minutos"] / 60, 2),
+            "Carga Operativa Total": round(métricas["carga"], 2)
+        })
+        
+    df_tiempos_gestores = pd.DataFrame(datos_tabla_gestores)
+    st.dataframe(df_tiempos_gestores, use_container_width=True, hide_index=True)
+
+else:
+    st.error("Archivo no encontrado o formato incorrecto.")
