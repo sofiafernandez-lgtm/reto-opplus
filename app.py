@@ -22,11 +22,11 @@ st.markdown("""
 # Función simplificada: Lee directamente los datos originales sin factores exponenciales
 def process_data(umbral_alto, umbral_medio):
     try:
-        # ACTUALIZADO: Cambiado al nombre exacto de tu nuevo archivo
+        # Lee el archivo subido
         df = pd.read_excel("OPPLUS mod1.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
-        # Redondeamos el riesgo original del Excel para que se vea limpio y sin decimales largos
+        # Redondeamos el riesgo original del Excel para que se vea limpio
         df['Riesgo de entrada en Mora'] = df['Riesgo de entrada en Mora'].round(0)
         
         mediana_carga = df['CARGA OPERATIVA'].median()
@@ -92,10 +92,10 @@ if df is not None:
 
     df_final, estadísticas_gestores = asignar_expedientes(df, n_gestores)
 
-    # ==========================================
-    # SECCIÓN: PANEL DE KPIs ESTRATÉGICOS
-    # ==========================================
-    kpi1, kpi2, kpi3 = st.columns(3)
+    # =========================================================
+    # SECCIÓN: PANEL DE KPIs ESTRATÉGICOS (MÉTRICAS EN FILA)
+    # =========================================================
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     
     with kpi1:
         st.metric(label="📦 Volumen de Expedientes", value=len(df_final))
@@ -114,13 +114,17 @@ if df is not None:
             label=f"🚨 Alertas de Mora (> {dias_kpi} días)", 
             value=casos_criticos
         )
+
+    with kpi4:
+        media_tiempo = df_final['T(min) de comunicación'].mean()
+        st.metric(
+            label="📞 Tiempo Medio de Comunicación", 
+            value=f"{media_tiempo:.1f} min"
+        )
         
     st.markdown("<br>", unsafe_allow_html=True)
 
-    media_tiempo = df_final['T(min) de comunicación'].mean()
-st.metric(label="⏱️ Media de Tiempo de Comunicación", value=f"{media_tiempo:.1f} min")
-
-    # SECCIÓN 1: GRÁFICOS ESTRATÉGICOS
+    # SECCIÓN 1: GRÁFICOS ESTRATÉGICOS (Alineación perfecta aquí)
     col_a, col_b = st.columns(2)
 
     with col_a:
@@ -169,7 +173,6 @@ st.metric(label="⏱️ Media de Tiempo de Comunicación", value=f"{media_tiempo
     with lp2:
         st.markdown('<div class="prioridad-card" style="border-left: 5px solid #f1c40f;">', unsafe_allow_html=True)
         st.subheader("Lista 2: Carga Baja / Riesgo Alto")
-        # CORREGIDO: Línea de texto unificada para evitar el SyntaxError
         st.caption("Prioridad 'Quick Win': Alta peligrosidad real, baja dificultad operativa")
         
         l2 = df_final[(df_final['Nivel Carga'] == 'Baja Carga') & (df_final['Nivel Riesgo'] == 'Alto Riesgo')]
