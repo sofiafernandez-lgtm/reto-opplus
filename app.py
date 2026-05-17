@@ -19,10 +19,10 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Función simplificada: Lee directamente los datos originales sin aplicar factores exponenciales
+# Función simplificada: Lee directamente los datos originales sin factores exponenciales
 def process_data(umbral_alto, umbral_medio):
     try:
-        df = pd.read_excel("OPPLUS mod1.xlsx", sheet_name="Modelo")
+        df = pd.read_excel("OPPLUS definitivo.xlsx", sheet_name="Modelo")
         df.columns = [c.strip() for c in df.columns]
         
         # Redondeamos el riesgo original del Excel para que se vea limpio y sin decimales largos
@@ -50,12 +50,24 @@ def process_data(umbral_alto, umbral_medio):
 def asignar_expedientes(data, num_gestores):
     # Ordenamos el censo basándonos estrictamente en el riesgo del Excel
     data = data.sort_values(by="Riesgo de entrada en Mora", ascending=False)
-    gestores = {f"Gestor {i+1}": 0 for i in range(num_gestores)}
+    
+    # Estructura para controlar tanto la carga como los minutos de comunicación por gestor
+    gestores = {f"Gestor {i+1}": {"carga": 0, "minutos": 0} for i in range(num_gestores)}
     asignaciones = []
+    
     for _, fila in data.iterrows():
-        gestor_libre = min(gestores, key=gestores.get)
+        # Buscamos el gestor óptimo: primero por menor cantidad de minutos, y en caso de empate por menor carga
+        gestor_libre = min(
+            gestores.keys(), 
+            key=lambda g: (gestores[g]["minutos"], gestores[g]["carga"])
+        )
+        
         asignaciones.append(gestor_libre)
-        gestores[gestor_libre] += fila['CARGA OPERATIVA']
+        
+        # Sumamos los dos criterios a la mochila del gestor elegido
+        gestores[gestor_libre]["carga"] += fila['CARGA OPERATIVA']
+        gestores[gestor_libre]["minutos"] += fila['T(min) de comunicación']
+        
     data['Gestor_Asignado'] = asignaciones
     return data, gestores
 
@@ -66,7 +78,6 @@ with st.sidebar:
     
     st.markdown("---")
     st.markdown("### 🎯 Reglas de Negocio")
-    # Los umbrales iniciales están calibrados con los datos de tu Excel original
     u_alto = st.number_input("Mínimo para 'Alto Riesgo'", min_value=500, max_value=100000, value=3000, step=500)
     u_medio = st.number_input("Mínimo para 'Riesgo Medio'", min_value=100, max_value=49999, value=1500, step=100)
     dias_kpi = st.slider("Plazo crítico de control (Días)", 15, 90, 60, step=5)
@@ -77,7 +88,7 @@ df = process_data(u_alto, u_medio)
 if df is not None:
     st.title("Modelo de priorización | Optimización Opplus")
 
-    df_final, cargas = asignar_expedientes(df, n_gestores)
+    df_final, estadísticas_gestores = asignar_expedientes(df, n_gestores)
 
     # ==========================================
     # SECCIÓN: PANEL DE KPIs ESTRATÉGICOS
@@ -145,8 +156,7 @@ if df is not None:
         
         if not l1.empty:
             for _, fila in l1.head(15).iterrows(): 
-                # Ajustado a 'Nº de cliente' para tu nuevo archivo Excel
-                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
+                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['T(min) de comunicación']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
         else:
             st.write("✅ Sin casos en este cuadrante.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -161,8 +171,7 @@ if df is not None:
         
         if not l2.empty:
             for _, fila in l2.head(15).iterrows():
-                # Ajustado a 'Nº de cliente' para tu nuevo archivo Excel
-                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | 👤 `{fila['Gestor_Asignado']}`")
+                st.write(f"📄 **Exp. {int(fila['Nº de cliente'])}** | Riesgo: `{int(fila['Riesgo de entrada en Mora'])}` | ⏱️ `{fila['T(min) de comunicación']:.1f} min` | 👤 `{fila['Gestor_Asignado']}`")
         else:
             st.write("✅ Sin casos en este cuadrante.")
         st.markdown('</div>', unsafe_allow_html=True)
@@ -172,8 +181,7 @@ if df is not None:
     # SECCIÓN 3: TABLA GENERAL
     st.subheader("📋 Censo Completo de Asignaciones")
     st.dataframe(
-        # Ajustado a 'Nº de cliente' para mapear correctamente tu nuevo archivo Excel
-        df_final[['Nº de cliente', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'Riesgo de entrada en Mora']],
+        df_final[['Nº de cliente', 'Gestor_Asignado', 'Cuadrante', 'Deuda actual', 'diferencia de días', 'T(min) de comunicación', 'Riesgo de entrada en Mora']],
         use_container_width=True
     )
 
